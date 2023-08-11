@@ -1,45 +1,37 @@
 import requests
 from bs4 import BeautifulSoup
 import csv
+import re
 
-def scrape_major_projects():
-    url = "https://www.cityoforinda.org/275/Major-Development-Projects"
+url = "https://www.cityoforinda.org/275/Major-Development-Projects"
 
-    # Send a GET request to the website
-    response = requests.get(url)
+content = requests.get(url)
+htmlContent = content.content
+# print(htmlContent)
 
-    if response.status_code != 200:
-        print(f"Failed to fetch data from {url}")
-        return None
+# I want to go through each of the projects, open them and then find the key details and lookout for errors.
 
-    # Parse the HTML content using BeautifulSoup
-    soup = BeautifulSoup(response.content, "html.parser")
+# Parse the HTML using BeautifulSoup
+soup = BeautifulSoup(htmlContent, "html.parser")
 
-    # Find the container for project cards
-    project_container = soup.find("div", class_="span8 content-desc")
+# Find all <li> elements with class "megaMenuItem"
+project_elements = soup.select(".megaMenuItem")
 
-    # Find all project cards (assuming each project is listed in a div tag with class 'views-row')
-    project_cards = project_container.find_all("div", class_="views-row")
+numeric_pattern = r'\b\d+\b'
 
-    # Create a CSV file to save the data
-    with open("major_projects.csv", "w", newline="", encoding="utf-8") as csvfile:
-        fieldnames = ["Name of project", "Description", "Number of units", "Status", "Last update date", "Importance to the city"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+# Extract and print project names and descriptions
+for project_element in project_elements:
+    project_name = project_element.select_one(".widgetTitle a").text.strip()
+    project_description = project_element.select_one(".widgetDesc").text.strip()
 
-        writer.writeheader()
-
-        # Iterate through each project card and extract relevant information
-        for project_card in project_cards:
-            name = project_card.find("div", class_="views-field-title").text.strip()
-            description = project_card.find("div", class_="views-field-field-description").text.strip()
-            num_units = project_card.find("div", class_="views-field-field-number-of-units").text.strip()
-            status = project_card.find("div", class_="views-field-field-status").text.strip()
-            last_update_date = project_card.find("div", class_="views-field-field-status-date").text.strip()
-            importance = project_card.find("div", class_="views-field-field-importance-to-the-city").text.strip()
-
-            # Write the data to the CSV file
-            writer.writerow({"Name of project": name, "Description": description, "Number of units": num_units,
-                             "Status": status, "Last update date": last_update_date, "Importance to the city": importance})
-
-if __name__ == "__main__":
-    scrape_major_projects()
+    # Search for numeric values next to the word "units"
+    units_matches = re.findall(numeric_pattern + r'\s*units', project_description, re.IGNORECASE)
+    
+    if units_matches:
+        # Extract numeric values from matches and sum them up
+        units_values = [int(match.split()[0]) for match in units_matches]
+        total_units = sum(units_values)
+        
+    print("Project Name:", project_name)
+    print("Project Description:", project_description)
+    print("Project Units")
